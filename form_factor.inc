@@ -33,6 +33,9 @@ real(dp), dimension(3) :: cog
 ! system numbers
 integer(8) :: natom, nmol, molsize, ntotal
 
+! calculate centre of mass
+integer(8) :: calc_com
+
 ! input, trajectory, and mass file names
 character(LEN=256) :: inputfile, trajfile, scatteringlengths
 character(LEN=256) :: strtypesanalyse

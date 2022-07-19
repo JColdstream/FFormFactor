@@ -2,6 +2,7 @@
 
 test_e1812.lammpstrj
 0           File for scattering lengths (0 calculates the unweighted scattering sum).
+0           Calculate form factor from nearest image to centre of mass (0 = No, 1 = Yest)
 0                             Skip frames
 20                           Last frame (inclusive), 0 calculates all frames.
 11                              TOTAL number of atom types.

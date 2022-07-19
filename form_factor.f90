@@ -13,10 +13,16 @@ do while ( trajstatus .eq. 0 .and. (lastframe .eq. 0 .or. frame .le. lastframe) 
   write(*, *) frame
   call readheader
   call readcoordinates
-  call initialcog
-  call iteratecog
-  call cogstructure
-  !call structure
+  if (calc_com .eq. 0) then
+    call initialcog
+    call iteratecog
+    call cogstructure
+  elseif (calc_com .eq. 1) then
+    call structure
+  else
+    write(*, *) 'Centre of mass calculation must take an input value of 0 or 1.'
+    call exit
+  endif
   frame = frame+1
 enddo
 
@@ -66,6 +72,7 @@ read(10, *)
 read(10, *)
 read(10, '(a)') trajfile
 read(10, *) scatteringlengths
+read(10, *) calc_com
 read(10, *) nskip
 read(10, *) lastframe
 read(10, *) ntypes
@@ -76,7 +83,6 @@ read(10, *) logqmax
 read(10, *) nq
 write(*,*) trajfile
 
-rg = 0.0_dp
 
 end subroutine readinput
 
@@ -311,10 +317,8 @@ subroutine structure
             drsq = 0.0_dp
             ! magnitude of the vector
             do i = 1, 3
-              if (dxyz(i) .gt. lx/2) then
-                dxyz(i) = dxyz(i) - lx
-              elseif (dxyz(i) .lt. -lx/2) then
-                dxyz(i) = dxyz(i) + lx
+              if ( abs(dxyz(i)) .gt. lx/2 ) then
+                dxyz(i) = dxyz(i) - lx*anint(dxyz(i)/lx)
               endif
               drsq = drsq+dxyz(i)**2 
             enddo
