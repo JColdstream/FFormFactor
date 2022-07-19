@@ -13,11 +13,11 @@ do while ( trajstatus .eq. 0 .and. (lastframe .eq. 0 .or. frame .le. lastframe) 
   write(*, *) frame
   call readheader
   call readcoordinates
-  if (calc_com .eq. 0) then
+  if (calc_com .eq. 1) then
     call initialcog
     call iteratecog
     call cogstructure
-  elseif (calc_com .eq. 1) then
+  elseif (calc_com .eq. 0) then
     call structure
   else
     write(*, *) 'Centre of mass calculation must take an input value of 0 or 1.'
