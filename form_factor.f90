@@ -7,16 +7,23 @@ integer(8):: iter
 
 frame = 1
 call start
+open(unit = 110, file='test.xyz', status='unknown')
 
 do while ( trajstatus .eq. 0 .and. (lastframe .eq. 0 .or. frame .le. lastframe) )
   !if (mod(frame, 50) .eq. 0) write(*,*) frame
   write(*, *) frame
   call readheader
   call readcoordinates
+  if ( trajstatus .ne. 0 ) cycle
   if (calc_com .eq. 1) then
     call initialcog
     call iteratecog
     call cogstructure
+    write (110, *) nanalyse
+    write (110, *)
+    do iter = 1, nanalyse
+      write(110, *) 'C', atom(:, iter)
+    enddo
   elseif (calc_com .eq. 0) then
     call structure
   else
@@ -27,10 +34,10 @@ do while ( trajstatus .eq. 0 .and. (lastframe .eq. 0 .or. frame .le. lastframe) 
 enddo
 
 ! test .xyz file to check molecule rebuilding
-open(unit = 110, file='test.xyz', status='unknown')
-do iter = 1, nanalyse
-  write(110, *) 'C', atom(:, iter)
-enddo
+! open(unit = 110, file='test.xyz', status='unknown')
+! do iter = 1, nanalyse
+!   write(110, *) 'C', atom(:, iter)
+! enddo
 
 write(*, *) 'Final frame: ', frame-1
 call structure_output
@@ -62,6 +69,8 @@ rewind(11)
 
 call skipframe
 frame = frame+nskip
+
+open(unit = 102, file='rg.out', status='unknown')
 
 end subroutine start
 
@@ -95,6 +104,7 @@ subroutine readscatteringlengths
   if (scatteringlengths .eq. '0') then
     do i = 1, ntypes
       b(i) = 1.0_dp
+      write(*,*) i, b(i)
     enddo
   else
     open(12, file = scatteringlengths, status='old')
@@ -102,6 +112,7 @@ subroutine readscatteringlengths
     read(12, *)
     do i = 1, ntypes
       read(12, *) j, b(j)
+      write(*,*) j, b(j)
     enddo
   endif
 end subroutine readscatteringlengths
@@ -264,6 +275,8 @@ subroutine cogstructure
   enddo
   write(*, *) 'Rg =', dsqrt(rg/nanalyse)
 
+  write(102, *) timestep, dsqrt(rg/nanalyse)
+
   !$OMP PARALLEL DO &
   !$OMP SCHEDULE(DYNAMIC) &
   !$OMP DEFAULT(NONE) &
@@ -282,8 +295,8 @@ subroutine cogstructure
           do i = 1, 3
             drsq = drsq+dxyz(i)**2
           enddo
-          dr = dsqrt(drsq)
-          qrij = q(iq)*dr
+          dr = 1.0_dp*dsqrt(drsq)
+          qrij = 1.0_dp*q(iq)*dr
           tempq = tempq+b(atomtype(moli))*b(atomtype(molj))*sin(qrij)/qrij
         endif
       enddo
@@ -297,7 +310,7 @@ end subroutine cogstructure
 
 subroutine structure
   integer(8):: i, iq, moli, molj
-  real(dp):: tempq, drsq, dr
+  real(dp):: tempq, drsq, dr, qrij
   real(dp), dimension(3):: dxyz
   ! real(dp), external:: ddot
   !$OMP PARALLEL DO &
@@ -322,8 +335,9 @@ subroutine structure
               endif
               drsq = drsq+dxyz(i)**2 
             enddo
-            dr = dsqrt(drsq)
-            tempq = tempq+b(atomtype(moli))*b(atomtype(molj)) * sin(q(iq)*dr)/q(iq)*dr
+            dr = 1.0_dp*dsqrt(drsq)
+            qrij = 1.0_dp*q(iq)*dr
+            tempq = tempq+2*b(atomtype(moli))*b(atomtype(molj)) * sin(qrij)/qrij
           endif
         enddo
       enddo
