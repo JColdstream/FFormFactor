@@ -6,7 +6,7 @@ integer, parameter :: dp = selected_real_kind(15, 307)
 real, parameter :: pi = 3.14159265
 
 logical :: first_read = .TRUE.
-integer(8) :: trajstatus, frame
+integer(8) :: trajstatus, frame, nstride, last_calculated_frame
 
 ! wavevectors
 integer(8) :: nq

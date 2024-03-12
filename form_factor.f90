@@ -3,7 +3,7 @@ use omp_lib
 
 implicit none
 include 'form_factor.inc'
-integer(8):: iter
+integer(8):: iter, j
 
 frame = 1
 call start
@@ -11,11 +11,11 @@ open(unit = 110, file='test.xyz', status='unknown')
 
 do while ( trajstatus .eq. 0 .and. (lastframe .eq. 0 .or. frame .le. lastframe) )
   !if (mod(frame, 50) .eq. 0) write(*,*) frame
-  write(*, *) frame
   call readheader
   call readcoordinates
   if ( trajstatus .ne. 0 ) cycle
   if (calc_com .eq. 1) then
+    write(*, *) "CURRENT FRAME : ", frame
     call initialcog
     call iteratecog
     call cogstructure
@@ -25,12 +25,22 @@ do while ( trajstatus .eq. 0 .and. (lastframe .eq. 0 .or. frame .le. lastframe) 
       write(110, *) 'C', atom(:, iter)
     enddo
   elseif (calc_com .eq. 0) then
+    write(*, *) "CURRENT FRAME : ", frame
     call structure
+    last_calculated_frame = frame
   else
     write(*, *) 'Centre of mass calculation must take an input value of 0 or 1.'
     call exit
   endif
   frame = frame+1
+  do j = 1, nstride-1
+    if (trajstatus .eq. 0 .and. (lastframe .eq. 0 .or. frame .le. lastframe)) then
+      call skipframe
+      frame = frame+1
+    else
+      exit
+    endif
+  enddo
 enddo
 
 ! test .xyz file to check molecule rebuilding
@@ -39,12 +49,19 @@ enddo
 !   write(110, *) 'C', atom(:, iter)
 ! enddo
 
-write(*, *) 'Final frame: ', frame-1
+write(*, *) 'Final frame calculated: ', last_calculated_frame
 call structure_output
 
 contains
 
 subroutine start
+
+integer:: i
+
+write(*,*) 'CALCULATING THE ISOTROPIC FORM FACTOR.'
+write(*,*)
+write(*,*) 'JONATHAN COLDSTREAM, 2022'
+write(*,*)
 
 call get_command_argument(1, inputfile)
 if (len_trim(inputfile) == 0) then
@@ -67,8 +84,16 @@ allocate(atomtype(nanalyse))
 call wavevector_setup
 rewind(11)
 
-call skipframe
+write(*,*) "Skipping first ", nskip, "frames."
+do i = 1, nskip
+  call skipframe
+enddo
+! write(*,*) "Frames skipped."
+write(*,*)
+write(*,*) "Calculating form factor every ", nstride, " frames."
 frame = frame+nskip
+
+write(*, *) "CURRENT FRAME : ", frame
 
 open(unit = 102, file='rg.out', status='unknown')
 
@@ -84,14 +109,14 @@ read(10, *) scatteringlengths
 read(10, *) calc_com
 read(10, *) nskip
 read(10, *) lastframe
+read(10, *) nstride
 read(10, *) ntypes
 read(10, '(a)') strtypesanalyse
 typesanalyse = string_to_integers(strtypesanalyse, ",")
 read(10, *) logqmin
 read(10, *) logqmax
 read(10, *) nq
-write(*,*) trajfile
-
+write(*,*) "Trajectory file: ", trajfile
 
 end subroutine readinput
 
@@ -112,7 +137,7 @@ subroutine readscatteringlengths
     read(12, *)
     do i = 1, ntypes
       read(12, *) j, b(j)
-      write(*,*) j, b(j)
+      ! write(*,*) j, b(j)
     enddo
   endif
 end subroutine readscatteringlengths
@@ -120,11 +145,9 @@ end subroutine readscatteringlengths
 ! skips frames that don't need to be analysed
 subroutine skipframe
 integer:: i
-do i = 1, nskip*(ntotal+9)
+do i = 1, (ntotal+9)
   read(11, *)
 enddo
-write(*,*) "SKIPPED FRAMES : ", nskip
-write(*,*)
 end subroutine skipframe
 
 ! reads in box length, timestep and natoms from the LAMMPS trajectory headers
@@ -317,7 +340,7 @@ subroutine structure
   !$OMP SCHEDULE(GUIDED) &
   !$OMP DEFAULT(NONE) &
   !$OMP SHARED(nq, q, lx, atom, nanalyse, b, atomtype) &
-  !$OMP PRIVATE(iq, moli, molj, drsq, dr, dxyz, i, tempq) &
+  !$OMP PRIVATE(iq, moli, molj, drsq, dr, qrij, dxyz, i, tempq) &
   !$OMP REDUCTION(+:p)
     do iq = 1, nq+1
       tempq = 0.0_dp
